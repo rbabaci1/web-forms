@@ -1,5 +1,5 @@
 import { json, redirect, type DataFunctionArgs } from '@remix-run/node'
-import { Form, useLoaderData } from '@remix-run/react'
+import { Form, useActionData, useLoaderData } from '@remix-run/react'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { floatingToolbarClassName } from '#app/components/floating-toolbar.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -26,6 +26,9 @@ export async function loader({ params }: DataFunctionArgs) {
 	})
 }
 
+const titleMaxLength = 100
+const contentMaxLength = 10000
+
 export async function action({ request, params }: DataFunctionArgs) {
 	invariantResponse(params.noteId, 'noteId param is required')
 
@@ -35,22 +38,79 @@ export async function action({ request, params }: DataFunctionArgs) {
 	invariantResponse(typeof title === 'string', 'title must be a string')
 	invariantResponse(typeof content === 'string', 'content must be a string')
 
+	const errors = {
+		formErrors: [] as Array<string>,
+		fieldErrors: {
+			title: [] as Array<string>,
+			content: [] as Array<string>,
+		},
+	}
+
+	if (title === '') {
+		errors.fieldErrors.title.push('This is required')
+	} else if (title.length > titleMaxLength) {
+		errors.fieldErrors.title.push(
+			`Title must be ${titleMaxLength} charaters or less.`,
+		)
+	}
+
+	if (content === '') {
+		errors.fieldErrors.content.push('This is required')
+	} else if (content.length > contentMaxLength) {
+		errors.fieldErrors.content.push(
+			`Content must be ${contentMaxLength} characters or less.`,
+		)
+	}
+
+	const hasErrors =
+		errors.formErrors.length > 0 ||
+		Object.values(errors.fieldErrors).some(
+			fieldErrors => fieldErrors.length > 0,
+		)
+
+	if (hasErrors) {
+		return json(
+			{ errors },
+			{
+				status: 400,
+			},
+		)
+	}
+
 	await updateNote({ id: params.noteId, title, content })
 
 	return redirect(`/users/${params.username}/notes/${params.noteId}`)
 }
 
+// 🐨 this is a good place to stick the ErrorList component if you want to use that
+function ErrorList({ errors }: { errors?: Array<string> | null }) {
+	return errors?.length ? (
+		<ul className="flex flex-col gap-1">
+			{errors.map((error, index) => (
+				<li key={index} className="text-[10px] text-foreground-danger">
+					{error}
+				</li>
+			))}
+		</ul>
+	) : null
+}
+
 export default function NoteEdit() {
 	const data = useLoaderData<typeof loader>()
+	const actionData = useActionData<typeof action>()
 	const isSubmitting = useIsSubmitting()
 	const formId = 'note-editor'
 
-	console.log('In NoteEdit:', data)
+	const fieldErrors = actionData?.errors.fieldErrors
+	const formErrors = actionData?.errors.formErrors
 
 	return (
 		<div className="absolute inset-0">
 			<Form
 				id={formId}
+				// 🐨 to test out the server-side validation, you need to disable the
+				// client-side validation. You can do that by adding:
+				noValidate
 				method="post"
 				className="flex h-full flex-col gap-y-4 overflow-y-auto overflow-x-hidden px-10 pb-28 pt-12"
 			>
@@ -58,25 +118,35 @@ export default function NoteEdit() {
 					<div>
 						{/* 🦉 NOTE: this is not an accessible label, we'll get to that in the accessibility exercises */}
 						<Label>Title</Label>
-
 						<Input
 							name="title"
 							defaultValue={data.note.title}
 							required
-							maxLength={100}
+							maxLength={titleMaxLength}
 						/>
+
+						<div className="min-h-[32px] px-4 pb-3 pt-1">
+							<ErrorList errors={fieldErrors?.title} />
+						</div>
 					</div>
 					<div>
 						{/* 🦉 NOTE: this is not an accessible label, we'll get to that in the accessibility exercises */}
 						<Label>Content</Label>
-
 						<Textarea
 							name="content"
 							defaultValue={data.note.content}
 							required
-							maxLength={10000}
+							maxLength={contentMaxLength}
 						/>
+
+						<div className="min-h-[32px] px-4 pb-3 pt-1">
+							<ErrorList errors={fieldErrors?.content} />
+						</div>
 					</div>
+				</div>
+
+				<div className="min-h-[32px] px-4 pb-3 pt-1">
+					<ErrorList errors={formErrors} />
 				</div>
 			</Form>
 			<div className={floatingToolbarClassName}>
