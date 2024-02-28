@@ -45,6 +45,8 @@ export default function NoteEdit() {
 	const isSubmitting = useIsSubmitting()
 	const formId = 'note-editor'
 
+	console.log('In NoteEdit:', data)
+
 	return (
 		<div className="absolute inset-0">
 			<Form
@@ -56,14 +58,24 @@ export default function NoteEdit() {
 					<div>
 						{/* 🦉 NOTE: this is not an accessible label, we'll get to that in the accessibility exercises */}
 						<Label>Title</Label>
-						{/* 🐨 add the appropriate HTML validation attributes here */}
-						<Input name="title" defaultValue={data.note.title} />
+
+						<Input
+							name="title"
+							defaultValue={data.note.title}
+							required
+							maxLength={100}
+						/>
 					</div>
 					<div>
 						{/* 🦉 NOTE: this is not an accessible label, we'll get to that in the accessibility exercises */}
 						<Label>Content</Label>
-						{/* 🐨 add the appropriate HTML validation attributes here */}
-						<Textarea name="content" defaultValue={data.note.content} />
+
+						<Textarea
+							name="content"
+							defaultValue={data.note.content}
+							required
+							maxLength={10000}
+						/>
 					</div>
 				</div>
 			</Form>
